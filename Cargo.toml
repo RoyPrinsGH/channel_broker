@@ -1,0 +1,16 @@
+[package]
+name = "tokio_channel_broker"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+tracing = ["dep:tracing"]
+
+[dependencies]
+tokio = { version = "1.52.1", features = ["sync"] }
+tracing = { version = "0.1.41", features = ["attributes"], optional = true }
+
+[dev-dependencies]
+tokio = { version = "1.52.1", features = ["macros", "rt", "sync"] }
+tracing-subscriber = "0.3.20"
