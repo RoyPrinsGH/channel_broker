@@ -1,14 +1,18 @@
 [package]
-name = "tokio_channel_broker"
+name = "channel_broker"
 version = "0.1.0"
 edition = "2024"
 
 [features]
-default = []
+default = ["std-mpsc-channel", "sync-channel"]
+std-mpsc-channel = []
+sync-channel = []
+broadcast-channel = ["dep:tokio"]
+watch-channel = ["dep:tokio"]
 tracing = ["dep:tracing"]
 
 [dependencies]
-tokio = { version = "1.52.1", features = ["sync"] }
+tokio = { version = "1.52.1", features = ["sync"], optional = true }
 tracing = { version = "0.1.41", features = ["attributes"], optional = true }
 
 [dev-dependencies]
