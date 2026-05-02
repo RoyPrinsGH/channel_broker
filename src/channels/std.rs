@@ -1,13 +1,13 @@
-use std::any::TypeId;
 #[cfg(feature = "tracing")]
 use std::any::type_name;
+use std::any::TypeId;
 #[cfg(feature = "std-mpsc-channel")]
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 #[cfg(feature = "sync-channel")]
 use std::sync::mpsc::{SyncSender, TrySendError};
 
-use crate::{ChannelBroker, ChannelDef};
+use crate::{ChannelBroker, ChannelDef, impl_accessor_fields};
 
 #[cfg(feature = "std-mpsc-channel")]
 pub struct StdMpscChannel<T> {
@@ -143,45 +143,7 @@ impl ChannelBroker {
         self
     }
 
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(level = "trace", skip(self), fields(channel_type = type_name::<TChannelDef>()))
-    )]
-    pub fn channel_maybe<TChannelDef>(&self) -> Option<&StdMpscChannel<TChannelDef::Message>>
-    where
-        TChannelDef: ChannelDef + 'static,
-        TChannelDef::Message: 'static,
-    {
-        let maybe_channel = self
-            .std_mpsc_channels
-            .get(&TypeId::of::<TChannelDef>())?
-            .downcast_ref::<StdMpscChannel<TChannelDef::Message>>();
-
-        #[cfg(feature = "tracing")]
-        tracing::trace!(
-            channel_type = type_name::<TChannelDef>(),
-            found = maybe_channel.is_some(),
-            "resolved std channel"
-        );
-
-        maybe_channel
-    }
-
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(level = "trace", skip(self), fields(channel_type = type_name::<TChannelDef>()))
-    )]
-    pub fn channel<TChannelDef>(&self) -> &StdMpscChannel<TChannelDef::Message>
-    where
-        TChannelDef: ChannelDef + 'static,
-        TChannelDef::Message: 'static,
-    {
-        #[cfg(feature = "tracing")]
-        tracing::trace!(channel_type = type_name::<TChannelDef>(), "accessing std channel");
-
-        self.channel_maybe::<TChannelDef>()
-            .expect("requested std channel is not registered in ChannelBroker")
-    }
+    impl_accessor_fields!(channel);
 }
 
 #[cfg(feature = "sync-channel")]
@@ -334,43 +296,5 @@ impl ChannelBroker {
         self
     }
 
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(level = "trace", skip(self), fields(channel_type = type_name::<TChannelDef>()))
-    )]
-    pub fn sync_channel_maybe<TChannelDef>(&self) -> Option<&SyncChannel<TChannelDef::Message>>
-    where
-        TChannelDef: ChannelDef + 'static,
-        TChannelDef::Message: 'static,
-    {
-        let maybe_channel = self
-            .sync_channels
-            .get(&TypeId::of::<TChannelDef>())?
-            .downcast_ref::<SyncChannel<TChannelDef::Message>>();
-
-        #[cfg(feature = "tracing")]
-        tracing::trace!(
-            channel_type = type_name::<TChannelDef>(),
-            found = maybe_channel.is_some(),
-            "resolved std sync channel"
-        );
-
-        maybe_channel
-    }
-
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(level = "trace", skip(self), fields(channel_type = type_name::<TChannelDef>()))
-    )]
-    pub fn sync_channel<TChannelDef>(&self) -> &SyncChannel<TChannelDef::Message>
-    where
-        TChannelDef: ChannelDef + 'static,
-        TChannelDef::Message: 'static,
-    {
-        #[cfg(feature = "tracing")]
-        tracing::trace!(channel_type = type_name::<TChannelDef>(), "accessing std sync channel");
-
-        self.sync_channel_maybe::<TChannelDef>()
-            .expect("requested std sync channel is not registered in ChannelBroker")
-    }
+    impl_accessor_fields!(sync_channel);
 }

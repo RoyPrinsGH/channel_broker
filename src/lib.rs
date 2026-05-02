@@ -2,6 +2,7 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 
 mod channels;
+mod codegen;
 
 #[cfg(feature = "broadcast-channel")]
 pub use channels::BroadcastChannel;

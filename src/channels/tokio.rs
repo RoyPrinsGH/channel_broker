@@ -1,7 +1,7 @@
-#[cfg(any(feature = "broadcast-channel", feature = "watch-channel"))]
-use std::any::TypeId;
 #[cfg(feature = "tracing")]
 use std::any::type_name;
+#[cfg(any(feature = "broadcast-channel", feature = "watch-channel"))]
+use std::any::TypeId;
 
 #[cfg(feature = "broadcast-channel")]
 use tokio::sync::broadcast;
@@ -10,9 +10,9 @@ use tokio::sync::watch;
 #[cfg(feature = "watch-channel")]
 use tokio::sync::watch::Ref;
 
-use crate::ChannelBroker;
 #[cfg(any(feature = "broadcast-channel"))]
 use crate::ChannelDef;
+use crate::{ChannelBroker, impl_accessor_fields};
 
 #[cfg(feature = "broadcast-channel")]
 pub struct BroadcastChannel<T>
@@ -132,53 +132,7 @@ impl ChannelBroker {
         self
     }
 
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(
-            level = "trace",
-            skip(self),
-            fields(channel_type = type_name::<TChannelDef>())
-        )
-    )]
-    pub fn broadcast_maybe<TChannelDef>(&self) -> Option<&BroadcastChannel<TChannelDef::Message>>
-    where
-        TChannelDef: ChannelDef + 'static,
-        TChannelDef::Message: Clone + 'static,
-    {
-        let maybe_channel = self
-            .broadcast_channels
-            .get(&TypeId::of::<TChannelDef>())?
-            .downcast_ref::<BroadcastChannel<TChannelDef::Message>>();
-
-        #[cfg(feature = "tracing")]
-        tracing::trace!(
-            channel_type = type_name::<TChannelDef>(),
-            found = maybe_channel.is_some(),
-            "resolved tokio broadcast channel"
-        );
-
-        maybe_channel
-    }
-
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(
-            level = "trace",
-            skip(self),
-            fields(channel_type = type_name::<TChannelDef>())
-        )
-    )]
-    pub fn broadcast<TChannelDef>(&self) -> &BroadcastChannel<TChannelDef::Message>
-    where
-        TChannelDef: ChannelDef + 'static,
-        TChannelDef::Message: Clone + 'static,
-    {
-        #[cfg(feature = "tracing")]
-        tracing::trace!(channel_type = type_name::<TChannelDef>(), "accessing tokio broadcast channel");
-
-        self.broadcast_maybe::<TChannelDef>()
-            .expect("requested tokio broadcast channel is not registered in ChannelBroker")
-    }
+    impl_accessor_fields!(broadcast);
 }
 
 #[cfg(feature = "watch-channel")]
@@ -300,49 +254,5 @@ impl ChannelBroker {
         self
     }
 
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(
-            level = "trace",
-            skip(self),
-            fields(state_type = type_name::<TState>())
-        )
-    )]
-    pub fn watch_maybe<TState>(&self) -> Option<&WatchChannel<TState>>
-    where
-        TState: Clone + 'static,
-    {
-        let maybe_channel = self
-            .watch_channels
-            .get(&TypeId::of::<TState>())?
-            .downcast_ref::<WatchChannel<TState>>();
-
-        #[cfg(feature = "tracing")]
-        tracing::trace!(
-            state_type = type_name::<TState>(),
-            found = maybe_channel.is_some(),
-            "resolved tokio watch channel"
-        );
-
-        maybe_channel
-    }
-
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(
-            level = "trace",
-            skip(self),
-            fields(state_type = type_name::<TState>())
-        )
-    )]
-    pub fn watch<TState>(&self) -> &WatchChannel<TState>
-    where
-        TState: Clone + 'static,
-    {
-        #[cfg(feature = "tracing")]
-        tracing::trace!(state_type = type_name::<TState>(), "accessing tokio watch channel");
-
-        self.watch_maybe::<TState>()
-            .expect("requested tokio watch channel is not registered in ChannelBroker")
-    }
+    impl_accessor_fields!(watch);
 }
