@@ -143,7 +143,7 @@ impl ChannelBroker {
         self
     }
 
-    impl_accessor_fields!(channel);
+    impl_accessor_fields!(std_mpsc);
 }
 
 #[cfg(feature = "sync-channel")]
@@ -296,5 +296,5 @@ impl ChannelBroker {
         self
     }
 
-    impl_accessor_fields!(sync_channel);
+    impl_accessor_fields!(sync);
 }

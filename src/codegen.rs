@@ -1,13 +1,6 @@
-#[doc(hidden)]
 #[macro_export]
-macro_rules! __impl_accessor_fields {
-    (
-        name = $name:ident,
-        field = $field:ident,
-        key = $key:ident,
-        channel = $channel:ty,
-        bounds = { $($bounds:tt)* }
-    ) => {
+macro_rules! impl_accessor_fields {
+    ($name:ident) => {
         paste::paste! {
             #[cfg_attr(
                 feature = "tracing",
@@ -16,23 +9,22 @@ macro_rules! __impl_accessor_fields {
                     skip(self),
                     fields(
                         accessor = stringify!($name),
-                        key_type = ::std::any::type_name::<$key>()
+                        channel = ::std::any::type_name::<TChannelDef>()
                     )
                 )
             )]
-            pub fn [<$name _maybe>]<$key>(&self) -> Option<&$channel>
+            pub fn [<$name _maybe>]<TChannelDef>(&self) -> Option<&[<$name:camel Channel>]<TChannelDef::Message>>
             where
-                $($bounds)*
+                TChannelDef: $crate::ChannelDef + 'static,
+                TChannelDef::Message: Clone
             {
                 let maybe_channel = self
-                    .$field
-                    .get(&::std::any::TypeId::of::<$key>())?
-                    .downcast_ref::<$channel>();
+                    .[<$name:snake _channels>]
+                    .get(&::std::any::TypeId::of::<TChannelDef>())?
+                    .downcast_ref::<[<$name:camel Channel>]<TChannelDef::Message>>();
 
                 #[cfg(feature = "tracing")]
                 tracing::trace!(
-                    accessor = stringify!($name),
-                    key_type = ::std::any::type_name::<$key>(),
                     found = maybe_channel.is_some(),
                     "resolved channel broker entry"
                 );
@@ -47,22 +39,19 @@ macro_rules! __impl_accessor_fields {
                     skip(self),
                     fields(
                         accessor = stringify!($name),
-                        key_type = ::std::any::type_name::<$key>()
+                        channel = ::std::any::type_name::<TChannelDef>()
                     )
                 )
             )]
-            pub fn $name<$key>(&self) -> &$channel
+            pub fn $name<TChannelDef>(&self) -> &[<$name:camel Channel>]<TChannelDef::Message>
             where
-                $($bounds)*
+                TChannelDef: $crate::ChannelDef + 'static,
+                TChannelDef::Message: Clone
             {
                 #[cfg(feature = "tracing")]
-                tracing::trace!(
-                    accessor = stringify!($name),
-                    key_type = ::std::any::type_name::<$key>(),
-                    "accessing channel broker entry"
-                );
+                tracing::trace!("accessing channel broker entry");
 
-                self.[<$name _maybe>]::<$key>()
+                self.[<$name _maybe>]::<TChannelDef>()
                     .expect(concat!("requested `", stringify!($name), "` channel is not registered in ChannelBroker"))
             }
 
@@ -73,25 +62,23 @@ macro_rules! __impl_accessor_fields {
                     skip(self),
                     fields(
                         accessor = stringify!($name),
-                        key_type = ::std::any::type_name::<$key>()
+                        channel = ::std::any::type_name::<TChannelDef>()
                     )
                 )
             )]
-            pub fn [<$name _mut_maybe>]<$key>(&mut self) -> Option<&mut $channel>
+            pub fn [<$name _mut_maybe>]<TChannelDef>(&mut self) -> Option<&mut [<$name:camel Channel>]<TChannelDef::Message>>
             where
-                $($bounds)*
+                TChannelDef: $crate::ChannelDef + 'static,
+                TChannelDef::Message: Clone
             {
                 let maybe_channel = self
-                    .$field
-                    .get_mut(&::std::any::TypeId::of::<$key>())?
-                    .downcast_mut::<$channel>();
+                    .[<$name:snake _channels>]
+                    .get_mut(&::std::any::TypeId::of::<TChannelDef>())?
+                    .downcast_mut::<[<$name:camel Channel>]<TChannelDef::Message>>();
 
                 #[cfg(feature = "tracing")]
                 tracing::trace!(
-                    accessor = stringify!($name),
-                    key_type = ::std::any::type_name::<$key>(),
                     found = maybe_channel.is_some(),
-                    mutable = true,
                     "resolved channel broker entry"
                 );
 
@@ -105,76 +92,21 @@ macro_rules! __impl_accessor_fields {
                     skip(self),
                     fields(
                         accessor = stringify!($name),
-                        key_type = ::std::any::type_name::<$key>()
+                        channel = ::std::any::type_name::<TChannelDef>()
                     )
                 )
             )]
-            pub fn [<$name _mut>]<$key>(&mut self) -> &mut $channel
+            pub fn [<$name _mut>]<TChannelDef>(&mut self) -> &[<$name:camel Channel>]<TChannelDef::Message>
             where
-                $($bounds)*
+                TChannelDef: $crate::ChannelDef + 'static,
+                TChannelDef::Message: Clone
             {
                 #[cfg(feature = "tracing")]
-                tracing::trace!(
-                    accessor = stringify!($name),
-                    key_type = ::std::any::type_name::<$key>(),
-                    mutable = true,
-                    "accessing channel broker entry"
-                );
+                tracing::trace!("accessing channel broker entry");
 
-                self.[<$name _mut_maybe>]::<$key>()
+                self.[<$name _mut_maybe>]::<TChannelDef>()
                     .expect(concat!("requested `", stringify!($name), "` channel is not registered in ChannelBroker"))
             }
         }
-    };
-}
-
-#[macro_export]
-macro_rules! impl_accessor_fields {
-    (channel) => {
-        $crate::__impl_accessor_fields!(
-            name = channel,
-            field = std_mpsc_channels,
-            key = TChannelDef,
-            channel = $crate::StdMpscChannel<TChannelDef::Message>,
-            bounds = {
-                TChannelDef: $crate::ChannelDef + 'static,
-                TChannelDef::Message: 'static,
-            }
-        );
-    };
-    (sync_channel) => {
-        $crate::__impl_accessor_fields!(
-            name = sync_channel,
-            field = sync_channels,
-            key = TChannelDef,
-            channel = $crate::SyncChannel<TChannelDef::Message>,
-            bounds = {
-                TChannelDef: $crate::ChannelDef + 'static,
-                TChannelDef::Message: 'static,
-            }
-        );
-    };
-    (broadcast) => {
-        $crate::__impl_accessor_fields!(
-            name = broadcast,
-            field = broadcast_channels,
-            key = TChannelDef,
-            channel = $crate::BroadcastChannel<TChannelDef::Message>,
-            bounds = {
-                TChannelDef: $crate::ChannelDef + 'static,
-                TChannelDef::Message: Clone + 'static,
-            }
-        );
-    };
-    (watch) => {
-        $crate::__impl_accessor_fields!(
-            name = watch,
-            field = watch_channels,
-            key = TState,
-            channel = $crate::WatchChannel<TState>,
-            bounds = {
-                TState: Clone + 'static,
-            }
-        );
     };
 }
