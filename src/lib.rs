@@ -27,19 +27,67 @@
 //!
 //! # Example
 //!
+//! This example requires the `broadcast-channel` and `watch-channel` features.
+//!
 //! ```
+//! # #[cfg(all(feature = "broadcast-channel", feature = "watch-channel"))]
+//! # {
 //! use channel_broker::{ChannelBroker, ChannelDef};
 //!
-//! struct Jobs;
+//! struct Events;
+//! struct State;
 //!
-//! impl ChannelDef for Jobs {
+//! impl ChannelDef for Events {
 //!     type Message = &'static str;
 //! }
 //!
-//! let broker = ChannelBroker::default().add_channel::<Jobs>();
+//! impl ChannelDef for State {
+//!     type Message = String;
+//! }
 //!
-//! broker.std_mpsc::<Jobs>().send("queued");
-//! assert_eq!(broker.std_mpsc::<Jobs>().recv(), "queued");
+//! fn event_worker_factory(broker: &ChannelBroker) -> impl Future<Output = ()> + Send + 'static {
+//!     let mut events = broker
+//!         .broadcast::<Events>()
+//!         .new_reader();
+//!
+//!     let state = broker
+//!         .watch::<State>()
+//!         .new_publisher();
+//!
+//!     async move {
+//!         let event = events
+//!             .recv()
+//!             .await
+//!             .unwrap();
+//!
+//!         state.send(format!("processed {event}"));
+//!     }
+//! }
+//!
+//! tokio::runtime::Builder::new_current_thread()
+//!     .enable_all()
+//!     .build()
+//!     .unwrap()
+//!     .block_on(async {
+//!         let broker = ChannelBroker::default()
+//!             .add_broadcast::<Events>(16)
+//!             .add_watch::<State>("idle".to_owned());
+//!
+//!         tokio::spawn(event_worker_factory(&broker));
+//!
+//!         broker
+//!             .broadcast::<Events>()
+//!             .send("job finished");
+//!
+//!         let mut state_reader = broker
+//!             .watch::<State>()
+//!             .new_reader();
+//!             
+//!         state_reader
+//!             .wait_for(|state| state == "processed job finished")
+//!             .await;
+//!     });
+//! # }
 //! ```
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
@@ -69,6 +117,7 @@ pub trait ChannelDef {
 /// Each registration method consumes and returns `Self`, which makes it convenient to
 /// build a broker fluently during initialization. Registering another channel under the
 /// same key replaces the previous entry for that key.
+#[derive(Default)]
 pub struct ChannelBroker {
     #[cfg(feature = "std-mpsc-channel")]
     std_mpsc_channels: HashMap<TypeId, Box<dyn Any>>,
@@ -78,24 +127,4 @@ pub struct ChannelBroker {
     broadcast_channels: HashMap<TypeId, Box<dyn Any>>,
     #[cfg(feature = "watch-channel")]
     watch_channels: HashMap<TypeId, Box<dyn Any>>,
-}
-
-impl Default for ChannelBroker {
-    /// Creates an empty broker with no registered channels.
-    #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace"))]
-    fn default() -> Self {
-        #[cfg(feature = "tracing")]
-        tracing::trace!("creating empty channel broker");
-
-        Self {
-            #[cfg(feature = "std-mpsc-channel")]
-            std_mpsc_channels: HashMap::new(),
-            #[cfg(feature = "sync-channel")]
-            sync_channels: HashMap::new(),
-            #[cfg(feature = "broadcast-channel")]
-            broadcast_channels: HashMap::new(),
-            #[cfg(feature = "watch-channel")]
-            watch_channels: HashMap::new(),
-        }
-    }
 }

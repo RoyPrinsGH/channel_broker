@@ -218,6 +218,25 @@ where
             .borrow()
     }
 
+    /// Waits for the published value to match the given predicate.
+    #[cfg_attr(
+		feature = "tracing",
+		tracing::instrument(
+			level = "trace",
+			skip(self, f),
+			fields(state_type = type_name::<T>())
+		)
+	)]
+    pub async fn wait_for(&mut self, f: impl FnMut(&T) -> bool) -> Ref<'_, T> {
+        #[cfg(feature = "tracing")]
+        tracing::trace!(state_type = type_name::<T>(), "reading tokio watch channel");
+
+        self.receiver
+            .wait_for(f)
+            .await
+            .expect("we always hold a sender, so this cannot fail")
+    }
+
     /// Clones and returns an additional sender handle.
     #[cfg_attr(
 		feature = "tracing",
