@@ -1,9 +1,18 @@
 //! Type-indexed channel registry with feature-gated standard-library and Tokio backends.
+//! It maintains the invariant that a channel is either registered as a
+//! sender/receiver pair or absent entirely. That, in turn, allows the broker to
+//! expose ergonomic channel accessors without partial-state edge cases.
 //!
 //! `ChannelBroker` stores one channel instance per type key and lets the rest of an
 //! application retrieve it without passing sender and receiver handles through every
 //! layer. Most channel families are registered under a zero-sized marker type that
 //! implements [`ChannelDef`].
+//!
+//! A common use case is wiring task factories or supervisors. Create the broker
+//! once at startup, pass `&ChannelBroker` to each factory, and let each task grab
+//! the publisher or reader it needs. This removes most explicit
+//! sender/receiver-state management and makes it straightforward to stop and
+//! restart tasks without breaking the expected communication paths.
 //!
 //! # Features
 //!
