@@ -55,9 +55,13 @@ where
         #[cfg(feature = "tracing")]
         tracing::trace!(message_type = type_name::<T>(), "sending tokio broadcast message");
 
-        _ = self
+        match self
             .sender
-            .send(new);
+            .send(new)
+        {
+            Ok(_) => (),
+            Err(_) => unreachable!("we always hold a linked receiver, so this cannot fail"),
+        }
     }
 
     #[cfg_attr(
@@ -219,9 +223,9 @@ where
         #[cfg(feature = "tracing")]
         tracing::trace!(state_type = type_name::<T>(), "updating tokio watch channel");
 
-        _ = self
-            .sender
-            .send(new);
+        self.sender
+            .send(new)
+            .expect("we always hold a linked receiver, so this cannot fail")
     }
 
     #[cfg_attr(
