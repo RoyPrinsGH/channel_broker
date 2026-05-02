@@ -1,7 +1,6 @@
+use std::any::TypeId;
 #[cfg(feature = "tracing")]
 use std::any::type_name;
-#[cfg(any(feature = "broadcast-channel", feature = "watch-channel"))]
-use std::any::TypeId;
 
 #[cfg(feature = "broadcast-channel")]
 use tokio::sync::broadcast;

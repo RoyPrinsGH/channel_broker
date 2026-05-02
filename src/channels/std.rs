@@ -1,6 +1,6 @@
+use std::any::TypeId;
 #[cfg(feature = "tracing")]
 use std::any::type_name;
-use std::any::TypeId;
 #[cfg(feature = "std-mpsc-channel")]
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
