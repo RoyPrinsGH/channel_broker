@@ -1,17 +1,18 @@
-#[cfg(any(feature = "std-mpsc-channel", feature = "sync-channel"))]
 use std::any::TypeId;
 #[cfg(feature = "tracing")]
 use std::any::type_name;
-#[cfg(any(feature = "std-mpsc-channel", feature = "sync-channel"))]
-use std::sync::mpsc;
+#[cfg(feature = "std-mpsc-channel")]
+use std::sync::mpsc::Sender;
+use std::sync::mpsc::{self, Receiver, TryRecvError};
+#[cfg(feature = "sync-channel")]
+use std::sync::mpsc::{SyncSender, TrySendError};
 
-#[cfg(any(feature = "std-mpsc-channel", feature = "sync-channel"))]
 use crate::{ChannelBroker, ChannelDef};
 
 #[cfg(feature = "std-mpsc-channel")]
 pub struct StdMpscChannel<T> {
-    sender: mpsc::Sender<T>,
-    receiver: mpsc::Receiver<T>,
+    sender: Sender<T>,
+    receiver: Receiver<T>,
 }
 
 #[cfg(feature = "std-mpsc-channel")]
@@ -43,9 +44,9 @@ impl<T> StdMpscChannel<T> {
         #[cfg(feature = "tracing")]
         tracing::trace!(message_type = type_name::<T>(), "sending std channel message");
 
-        _ = self
-            .sender
-            .send(new);
+        self.sender
+            .send(new)
+            .expect("we always hold a linked receiver, so this cannot fail")
     }
 
     #[cfg_attr(
@@ -62,7 +63,7 @@ impl<T> StdMpscChannel<T> {
 
         self.receiver
             .recv()
-            .expect("we hold sender, so this cannot fail")
+            .expect("we always hold a linked sender, so this cannot fail")
     }
 
     #[cfg_attr(
@@ -81,8 +82,8 @@ impl<T> StdMpscChannel<T> {
             .receiver
             .try_recv()
         {
-            Err(mpsc::TryRecvError::Empty) => None,
-            Err(mpsc::TryRecvError::Disconnected) => unreachable!("we hold the receiver, so this cannot be disconnected"),
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Disconnected) => unreachable!("we always hold a linked receiver, so this cannot be disconnected"),
             Ok(data) => Some(data),
         }
     }
@@ -185,8 +186,8 @@ impl ChannelBroker {
 
 #[cfg(feature = "sync-channel")]
 pub struct SyncChannel<T> {
-    sender: mpsc::SyncSender<T>,
-    receiver: mpsc::Receiver<T>,
+    sender: SyncSender<T>,
+    receiver: Receiver<T>,
 }
 
 #[cfg(feature = "sync-channel")]
@@ -218,9 +219,9 @@ impl<T> SyncChannel<T> {
         #[cfg(feature = "tracing")]
         tracing::trace!(message_type = type_name::<T>(), "sending std sync channel message");
 
-        _ = self
-            .sender
-            .send(new);
+        self.sender
+            .send(new)
+            .expect("we always hold a linked receiver, so this cannot fail")
     }
 
     #[cfg_attr(
@@ -239,8 +240,8 @@ impl<T> SyncChannel<T> {
             .sender
             .try_send(new)
         {
-            Err(mpsc::TrySendError::Full(returned)) => Err(returned),
-            Err(mpsc::TrySendError::Disconnected(_)) => unreachable!("we hold the receiver, so this cannot be disconnected"),
+            Err(TrySendError::Full(returned)) => Err(returned),
+            Err(TrySendError::Disconnected(_)) => unreachable!("we always hold a linked receiver, so this cannot be disconnected"),
             Ok(()) => Ok(()),
         }
     }
@@ -259,7 +260,7 @@ impl<T> SyncChannel<T> {
 
         self.receiver
             .recv()
-            .expect("we hold sender, so this cannot fail")
+            .expect("we always hold a linked sender, so this cannot fail")
     }
 
     #[cfg_attr(
@@ -278,8 +279,8 @@ impl<T> SyncChannel<T> {
             .receiver
             .try_recv()
         {
-            Err(mpsc::TryRecvError::Empty) => None,
-            Err(mpsc::TryRecvError::Disconnected) => unreachable!("we hold the receiver, so this cannot be disconnected"),
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Disconnected) => unreachable!("we always hold a linked receiver, so this cannot be disconnected"),
             Ok(data) => Some(data),
         }
     }
