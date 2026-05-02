@@ -1,3 +1,5 @@
+//! Feature-gated channel backend implementations used by `ChannelBroker`.
+
 mod std;
 
 #[cfg(feature = "std-mpsc-channel")]

@@ -1,3 +1,5 @@
+//! Tokio channel backends for `ChannelBroker`.
+
 use std::any::TypeId;
 #[cfg(feature = "tracing")]
 use std::any::type_name;
@@ -14,6 +16,10 @@ use crate::ChannelDef;
 use crate::{ChannelBroker, impl_accessor_fields};
 
 #[cfg(feature = "broadcast-channel")]
+/// Wrapper around `tokio::sync::broadcast`.
+///
+/// The broker stores one sender and one receiver internally. Use [`Self::new_publisher`]
+/// and [`Self::new_reader`] to clone additional handles for other tasks.
 pub struct BroadcastChannel<T>
 where
     T: Clone,
@@ -27,6 +33,7 @@ impl<T> BroadcastChannel<T>
 where
     T: Clone,
 {
+    /// Creates a new broadcast channel with the provided ring-buffer `capacity`.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -42,6 +49,7 @@ where
         Self { sender, receiver }
     }
 
+    /// Broadcasts `new` to all active receivers.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -63,6 +71,7 @@ where
         }
     }
 
+    /// Clones and returns an additional sender handle.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -79,6 +88,7 @@ where
             .clone()
     }
 
+    /// Returns a fresh receiver subscribed to messages sent after this call.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -98,6 +108,10 @@ where
 
 #[cfg(feature = "broadcast-channel")]
 impl ChannelBroker {
+    /// Registers a Tokio broadcast channel for `TChannelDef`.
+    ///
+    /// Retrieve the channel later with the `broadcast*` broker accessors. If a channel
+    /// with the same key already exists, it is replaced.
     #[cfg_attr(
         feature = "tracing",
         tracing::instrument(
@@ -135,6 +149,10 @@ impl ChannelBroker {
 }
 
 #[cfg(feature = "watch-channel")]
+/// Wrapper around `tokio::sync::watch`.
+///
+/// A watch channel always stores a current value. Use [`Self::read`] to borrow the latest
+/// state and [`Self::new_reader`] to clone additional receivers.
 pub struct WatchChannel<T>
 where
     T: Clone,
@@ -148,6 +166,7 @@ impl<T> WatchChannel<T>
 where
     T: Clone,
 {
+    /// Creates a new watch channel seeded with `init`.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -164,6 +183,7 @@ where
         Self { sender, receiver }
     }
 
+    /// Replaces the current value with `new` and notifies watchers.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -181,6 +201,7 @@ where
             .expect("we always hold a linked receiver, so this cannot fail")
     }
 
+    /// Borrows the most recently published value.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -197,6 +218,7 @@ where
             .borrow()
     }
 
+    /// Clones and returns an additional sender handle.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -213,6 +235,7 @@ where
             .clone()
     }
 
+    /// Clones and returns an additional receiver handle.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -232,23 +255,28 @@ where
 
 #[cfg(feature = "watch-channel")]
 impl ChannelBroker {
+    /// Registers a Tokio watch channel for `TChannelDef`.
+    ///
+    /// Retrieve the channel later with the `watch*` broker accessors. If a channel
+    /// with the same key already exists, it is replaced.
     #[cfg_attr(
         feature = "tracing",
         tracing::instrument(
             level = "trace",
             skip(self, init),
-            fields(state_type = type_name::<TState>())
+            fields(state_type = type_name::<TChannelDef>())
         )
     )]
-    pub fn add_watch<TState>(mut self, init: TState) -> Self
+    pub fn add_watch<TChannelDef>(mut self, init: TChannelDef::Message) -> Self
     where
-        TState: Clone + 'static,
+        TChannelDef: ChannelDef + 'static,
+        TChannelDef::Message: Clone,
     {
         #[cfg(feature = "tracing")]
-        tracing::trace!(state_type = type_name::<TState>(), "registering tokio watch channel");
+        tracing::trace!(state_type = type_name::<TChannelDef>(), "registering tokio watch channel");
 
         self.watch_channels
-            .insert(TypeId::of::<TState>(), Box::new(WatchChannel::<TState>::new(init)));
+            .insert(TypeId::of::<TChannelDef>(), Box::new(WatchChannel::<TChannelDef::Message>::new(init)));
 
         self
     }

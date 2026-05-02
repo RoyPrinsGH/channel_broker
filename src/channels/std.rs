@@ -1,3 +1,5 @@
+//! Standard-library channel backends for `ChannelBroker`.
+
 use std::any::TypeId;
 #[cfg(feature = "tracing")]
 use std::any::type_name;
@@ -10,6 +12,11 @@ use std::sync::mpsc::{SyncSender, TrySendError};
 use crate::{ChannelBroker, ChannelDef, impl_accessor_fields};
 
 #[cfg(feature = "std-mpsc-channel")]
+/// Thin wrapper around `std::sync::mpsc::channel`.
+///
+/// The broker stores one sender and one receiver internally. Use [`Self::new_publisher`]
+/// to hand out additional producer handles while keeping the canonical receiver inside
+/// the broker.
 pub struct StdMpscChannel<T> {
     sender: Sender<T>,
     receiver: Receiver<T>,
@@ -17,6 +24,7 @@ pub struct StdMpscChannel<T> {
 
 #[cfg(feature = "std-mpsc-channel")]
 impl<T> StdMpscChannel<T> {
+    /// Creates a new unbounded multi-producer, single-consumer channel.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -32,6 +40,7 @@ impl<T> StdMpscChannel<T> {
         Self { sender, receiver }
     }
 
+    /// Sends `new` into the channel.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -49,6 +58,7 @@ impl<T> StdMpscChannel<T> {
             .expect("we always hold a linked receiver, so this cannot fail")
     }
 
+    /// Blocks until a message is available and returns it.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -66,6 +76,9 @@ impl<T> StdMpscChannel<T> {
             .expect("we always hold a linked sender, so this cannot fail")
     }
 
+    /// Attempts to receive a message without blocking.
+    ///
+    /// Returns `None` when the channel is currently empty.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -88,6 +101,7 @@ impl<T> StdMpscChannel<T> {
         }
     }
 
+    /// Clones and returns an additional producer handle.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -107,6 +121,7 @@ impl<T> StdMpscChannel<T> {
 
 #[cfg(feature = "std-mpsc-channel")]
 impl<T> Default for StdMpscChannel<T> {
+    /// Creates a new unbounded channel.
     fn default() -> Self {
         Self::new()
     }
@@ -114,6 +129,10 @@ impl<T> Default for StdMpscChannel<T> {
 
 #[cfg(feature = "std-mpsc-channel")]
 impl ChannelBroker {
+    /// Registers an unbounded standard-library channel for `TChannelDef`.
+    ///
+    /// Retrieve the channel later with the `std_mpsc*` broker accessors. If a channel
+    /// with the same key already exists, it is replaced.
     #[cfg_attr(
         feature = "tracing",
         tracing::instrument(
@@ -147,6 +166,10 @@ impl ChannelBroker {
 }
 
 #[cfg(feature = "sync-channel")]
+/// Thin wrapper around `std::sync::mpsc::sync_channel`.
+///
+/// The broker keeps one sender and one receiver internally. Use [`Self::new_publisher`]
+/// when additional producer handles are needed.
 pub struct SyncChannel<T> {
     sender: SyncSender<T>,
     receiver: Receiver<T>,
@@ -154,6 +177,7 @@ pub struct SyncChannel<T> {
 
 #[cfg(feature = "sync-channel")]
 impl<T> SyncChannel<T> {
+    /// Creates a new bounded channel with the provided `bound`.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -169,6 +193,7 @@ impl<T> SyncChannel<T> {
         Self { sender, receiver }
     }
 
+    /// Sends `new`, blocking until the bounded channel has capacity.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -186,6 +211,9 @@ impl<T> SyncChannel<T> {
             .expect("we always hold a linked receiver, so this cannot fail")
     }
 
+    /// Attempts to send `new` without blocking.
+    ///
+    /// Returns the original message in `Err(new)` when the channel is full.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -208,6 +236,7 @@ impl<T> SyncChannel<T> {
         }
     }
 
+    /// Blocks until a message is available and returns it.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -225,6 +254,9 @@ impl<T> SyncChannel<T> {
             .expect("we always hold a linked sender, so this cannot fail")
     }
 
+    /// Attempts to receive a message without blocking.
+    ///
+    /// Returns `None` when the channel is currently empty.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -247,6 +279,7 @@ impl<T> SyncChannel<T> {
         }
     }
 
+    /// Clones and returns an additional producer handle.
     #[cfg_attr(
 		feature = "tracing",
 		tracing::instrument(
@@ -266,6 +299,10 @@ impl<T> SyncChannel<T> {
 
 #[cfg(feature = "sync-channel")]
 impl ChannelBroker {
+    /// Registers a bounded standard-library channel for `TChannelDef`.
+    ///
+    /// Retrieve the channel later with the `sync*` broker accessors. If a channel with
+    /// the same key already exists, it is replaced.
     #[cfg_attr(
         feature = "tracing",
         tracing::instrument(

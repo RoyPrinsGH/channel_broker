@@ -1,7 +1,11 @@
+//! Internal macros that generate the broker accessor methods.
+
+#[doc(hidden)]
 #[macro_export]
 macro_rules! impl_accessor_fields {
     ($name:ident) => {
         paste::paste! {
+            #[doc = "Returns the registered channel for the requested type key, or `None` if it has not been added."]
             #[cfg_attr(
                 feature = "tracing",
                 tracing::instrument(
@@ -32,6 +36,7 @@ macro_rules! impl_accessor_fields {
                 maybe_channel
             }
 
+            #[doc = "Returns the registered channel for the requested type key.\n\n# Panics\n\nPanics if the broker does not contain a matching entry."]
             #[cfg_attr(
                 feature = "tracing",
                 tracing::instrument(
@@ -55,6 +60,7 @@ macro_rules! impl_accessor_fields {
                     .expect(concat!("requested `", stringify!($name), "` channel is not registered in ChannelBroker"))
             }
 
+            #[doc = "Returns a mutable reference to the registered channel for the requested type key, or `None` if it has not been added."]
             #[cfg_attr(
                 feature = "tracing",
                 tracing::instrument(
@@ -85,6 +91,7 @@ macro_rules! impl_accessor_fields {
                 maybe_channel
             }
 
+            #[doc = "Returns a mutable reference to the registered channel for the requested type key.\n\n# Panics\n\nPanics if the broker does not contain a matching entry."]
             #[cfg_attr(
                 feature = "tracing",
                 tracing::instrument(
@@ -96,7 +103,7 @@ macro_rules! impl_accessor_fields {
                     )
                 )
             )]
-            pub fn [<$name _mut>]<TChannelDef>(&mut self) -> &[<$name:camel Channel>]<TChannelDef::Message>
+            pub fn [<$name _mut>]<TChannelDef>(&mut self) -> &mut [<$name:camel Channel>]<TChannelDef::Message>
             where
                 TChannelDef: $crate::ChannelDef + 'static,
                 TChannelDef::Message: Clone
